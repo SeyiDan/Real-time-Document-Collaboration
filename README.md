@@ -1,6 +1,6 @@
 # Real-Time Collaborative Document Editor
 
-A web-based document editor that allows multiple users to collaborate on documents in real-time. This application provides synchronized editing, cursor tracking, and user presence awareness.
+A web-based document editor that allows multiple users to collaborate on documents in real time. This application provides synchronized editing, cursor tracking, and user presence awareness.
 
 ## Features
 
@@ -29,8 +29,8 @@ A web-based document editor that allows multiple users to collaborate on documen
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/collaborative-editor.git
-   cd collaborative-editor
+   git clone https://github.com/SeyiDan/Real-time-Document-Collaboration.git
+   cd Real-time-Document-Collaboration
    ```
 
 2. Create and activate a virtual environment (optional but recommended):
@@ -76,7 +76,7 @@ A web-based document editor that allows multiple users to collaborate on documen
 
 ### Document Creation and Storage
 
-When a user creates a new document, a random ID is generated and the document is stored in the SQLite database. The document can be accessed by its unique ID.
+When a user creates a new document, a random ID is generated, and the document is stored in the SQLite database. The document can be accessed by its unique ID.
 
 ### Real-time Collaboration
 
