@@ -1,0 +1,106 @@
+<!Doctype html>
+<html>
+ <head>
+    <title> Collaborative Editor</title>
+    <style> 
+        /* Basic Styling for the entire page */
+        body{
+            font-family:Arial, Helvetica, sans-serif;
+            margin: 0;
+            padding:20px;
+            background-color: #f5f3f5;
+        }
+
+        /* Container for the main content */
+        .container{
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Heading style */
+        h1{
+            color: #333;
+        }
+
+        /*Form elements styling */
+        input,button {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        /*Button styling */
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        /* Button hover effect */
+        button:hover{
+            background-color: #45a049;
+        }
+
+    </style>
+ </head> 
+ <body>
+    <div class = "container">
+        <h1> Real-Time Collaboration Tool</h1>
+        <p> Create a new document or join an existing one.</p>
+
+        <!-- Username input field -->
+         <div>
+            <input type = "text" id="username" placeholder = "Your Name" value = "Anonymous">
+         </div>
+
+         <!-- Button to create a new document-->
+          <div>
+            <button id="create-doc"> Create New Document</button>
+          </div>
+
+          <!-- Form to join an existing document-->
+           <div>
+            <input type="text" id="doc-id" placeholder="Document ID">
+            <button id="join-doc"> Join Document</button>
+           </div>
+
+           <!-- Link to view all documents -->
+           <div style="margin-top: 20px;">
+                <a href="#" id="view-dashboard">View All Documents</a>
+           </div>
+    </div>
+
+    <script>
+        // Event listener for the "Create New Document" button
+        document.getElementById('create-doc').addEventListener('click', function() {
+            const username = document.getElementById('username').value || 'Anonymous';
+            const docId = Math.random().toString(36).substring(2, 10);
+            window.location.href = `/document/${docId}?username=${encodeURIComponent(username)}`;
+        });
+        
+        // Event listener for the "Join Document" button
+        document.getElementById('join-doc').addEventListener('click', function() {
+            const username = document.getElementById('username').value || 'Anonymous';
+            const docId = document.getElementById('doc-id').value;
+            if (docId) {
+                window.location.href = `/document/${docId}?username=${encodeURIComponent(username)}`;
+            } else {
+                alert('Please enter a Document ID');
+            }
+
+        });
+
+        // Add dashboard link Handlers
+        document.getElementById('view-dashboard').addEventListener('click', function() {
+            const username = document.getElementById('username').value || 'Anonymous';
+            window.location.href = `/dashboard?username=${encodeURIComponent(username)}`;
+        })
+    </script>
+ </body>  
+</html>

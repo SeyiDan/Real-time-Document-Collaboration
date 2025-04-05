@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title> Collaborative Editor - Document</title>
+    <style>
+    /* Basic styling for the entire page */
+    body{
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+    }
+    /*Container layout with flexbox for side-by-side content */
+    .container {
+        display: flex;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    /* Styling for the main editor container */
+    .editor-container {
+        flex: 1;
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgb(0,0,0,0.1);
+    }
+
+    /* Styling for the sidebar */
+    .sidebar {
+        width: 200px;
+        margin-left: 20px;
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /*Heading styles */
+    h1,h2 {
+        color: #333;
+    }
+
+    /* Styling for the text editor */
+    #editor {
+        width: 100%;
+        height: 400px;
+        border: 1px solid #ddd;
+        padding: 10px;
+        resize: vertical;
+        font-size: 16px;
+        line-height: 1.5;
+    }
+
+    /* Styling for individual user items */
+    .user-item{
+        margin-top: 20px;
+    }
+
+    /*Styling for the info bar with document ID */
+    .info-bar{
+        margin-bottom: 10px;
+        padding: 10px;
+        background-color: #e9f7ef;
+        border-radius: 4px;
+    }
+    /* Styling for cursor indicators */
+    .cursor {
+        position: absolute;
+        width: 2px;
+        height: 20px;
+        background-color: red; /* Default color, will be changed by script */
+        pointer-events: none;
+    }
+    </style>
+</head>
+<body>
+    <div class = "container">
+
+        <!-- Main editor area-->
+         <div class = "editor-container">
+            
+            <!-- Info bar with document ID and copy button -->
+            <div class="info-bar">
+                Document ID: <strong id="doc-id">{{ doc_id }}</strong> 
+                <button id="copy-link">Copy Link</button>
+                <a href="/dashboard?username={{ username }}" style="margin-left: 10px;"> Back to Dashboard </a>
+            </div>
+             
+             <h1> Collaborative Document</h1>
+             <textarea id="editor"></textarea>
+
+             <!-- Container for cursor indicators -->
+
+              <div id="cursor-container"></div>
+         </div>
+
+         <!-- Sidebar with active users -->
+          <div class="sidebar">
+            <h2>Active Users</h2>
+            <div id="user-list" class="user-list"></div>
+          </div>
+    </div>
+     <!-- Include the Socket.IO client library -->
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+     <script>
+         // Get document ID and username from template variables
+         const docId = '{{ doc_id }}';
+         const username = '{{ username }}';
+         
+         // Initialize Socket.IO connection
+         const socket = io();
+         
+         // Get DOM elements
+         const editor = document.getElementById('editor');
+         const userList = document.getElementById('user-list');
+         const cursorContainer = document.getElementById('cursor-container');
+         
+         if (!editor) {
+            console.error('Editor element not found!');
+            // Create a temporary editor element to prevent errors
+            const tempEditor = document.createElement('textarea');
+            tempEditor.id = 'editor';
+            document.querySelector('.editor-container').appendChild(tempEditor);
+            editor = document.getElementById('editor');
+        }
+         // Object to store cursor elements for each user
+         const cursors = {};
+         
+         // ===== Socket.IO Event Handlers =====
+         
+         // Handle connection to Socket.IO
+         socket.on('connect', function() {
+             console.log('Connected to server');
+             
+             // Join the document room
+             socket.emit('join_document', {
+                 doc_id: docId
+             });
+         });
+         
+         // Handle receiving initial document content
+         socket.on('document_content', function(data) {
+             // Set the editor content
+             editor.value = data.content;
+             
+             // Update the user list with current users
+             updateUserList(data.users);
+         });
+         
+         // Handle content changes from other users
+         socket.on('content_changed', function(data) {
+             // Update the editor with the new content
+             editor.value = data.content;
+         });
+         
+         // Handle cursor updates from other users
+         socket.on('cursor_update', function(data) {
+             // Update the cursor position for the user
+             updateCursor(data.user_id, data.position, data.username);
+         });
+         
+         // Handle a new user joining the document
+         socket.on('user_joined', function(data) {
+             // Get current user list from DOM
+             const users = Array.from(document.querySelectorAll('.user-item'))
+                 .map(el => el.textContent);
+             
+             // Add the new user if they're not already in the list
+             if (!users.includes(data.username)) {
+                 updateUserList([...users, data.username]);
+             }
+         });
+         
+         // Handle a user leaving the document
+         socket.on('user_left', function(data) {
+             // Get current user list and filter out the departing user
+             const users = Array.from(document.querySelectorAll('.user-item'))
+                 .map(el => el.textContent)
+                 .filter(name => name !== data.username);
+             
+             // Update the user list
+             updateUserList(users);
+             
+             // Remove their cursor if it exists
+             Object.keys(cursors).forEach(userId => {
+                 if (cursors[userId].username === data.username) {
+                     removeCursor(userId);
+                 }
+             });
+         });
+         
+         // ===== DOM Event Handlers =====
+         
+         // Send content updates when the user types
+         editor.addEventListener('input', function() {
+             socket.emit('update_content', {
+                 content: editor.value
+             });
+         });
+         
+         // Send cursor position updates when it moves
+         editor.addEventListener('click', updateCursorPosition);
+         editor.addEventListener('keyup', updateCursorPosition);
+         
+         // Copy link button functionality
+         document.getElementById('copy-link').addEventListener('click', function() {
+             const link = window.location.href;
+             navigator.clipboard.writeText(link).then(() => {
+                 alert('Link copied to clipboard!');
+             });
+         });
+         
+         // ===== Helper Functions =====
+         
+         // Update the cursor position on the server
+         function updateCursorPosition() {
+             const position = editor.selectionStart;
+             socket.emit('cursor_move', {
+                 position: position
+             });
+         }
+         
+         // Update the user list in the sidebar
+         function updateUserList(users) {
+             userList.innerHTML = '';
+             users.forEach(user => {
+                 const userItem = document.createElement('div');
+                 userItem.className = 'user-item';
+                 userItem.textContent = user;
+                 userList.appendChild(userItem);
+             });
+         }
+         
+         // Update or create a cursor for a specific user
+         function updateCursor(userId, position, username) {
+             // Remove any existing cursor for this user
+             removeCursor(userId);
+             
+             // Create the cursor element
+             const cursorEl = document.createElement('div');
+             cursorEl.className = 'cursor';
+             
+             // Create the cursor label with the username
+             const labelEl = document.createElement('div');
+             labelEl.className = 'cursor-label';
+             labelEl.textContent = username;
+             
+             // Generate a unique color based on the username
+             const color = stringToColor(username);
+             labelEl.style.backgroundColor = color;
+             cursorEl.style.backgroundColor = color;
+             
+             // Position the cursor and label
+             positionCursor(cursorEl, labelEl, position);
+             
+             // Add elements to the DOM
+             cursorContainer.appendChild(cursorEl);
+             cursorContainer.appendChild(labelEl);
+             
+             // Store reference to these elements
+             cursors[userId] = {
+                 cursor: cursorEl,
+                 label: labelEl,
+                 username: username
+             };
+         }
+         
+         // Remove a cursor from the display
+         function removeCursor(userId) {
+             if (cursors[userId]) {
+                 cursors[userId].cursor.remove();
+                 cursors[userId].label.remove();
+                 delete cursors[userId];
+             }
+         }
+         
+         // Calculate and set the position of a cursor
+         function positionCursor(cursorEl, labelEl, position) {
+             // Split text into lines up to the cursor position
+             const text = editor.value.substring(0, position);
+             const lines = text.split('\n');
+             const lineCount = lines.length;
+             const lastLineLength = lines[lines.length - 1].length;
+             
+             // Calculate approximate position based on character counts
+             // These values may need adjustment based on font size
+             const lineHeight = 20; // Approximate line height in pixels
+             const charWidth = 9;   // Approximate character width in pixels
+             
+             const top = editor.offsetTop + (lineCount - 1) * lineHeight;
+             const left = editor.offsetLeft + lastLineLength * charWidth;
+             
+             // Position cursor and label elements
+             cursorEl.style.top = top + 'px';
+             cursorEl.style.left = left + 'px';
+             
+             labelEl.style.top = (top - 20) + 'px'; // Position label above cursor
+             labelEl.style.left = left + 'px';
+         }
+         
+         // Generate a consistent color from a string
+         function stringToColor(str) {
+             // Simple hash function to convert string to a number
+             let hash = 0;
+             for (let i = 0; i < str.length; i++) {
+                 hash = str.charCodeAt(i) + ((hash << 5) - hash);
+             }
+             
+             // Convert hash to a color
+             let color = '#';
+             for (let i = 0; i < 3; i++) {
+                 const value = (hash >> (i * 8)) & 0xFF;
+                 color += ('00' + value.toString(16)).substr(-2);
+             }
+             
+             return color;
+         }
+     </script>
+
+</body>
+    
+
+</html>
